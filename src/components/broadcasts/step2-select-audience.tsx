@@ -389,6 +389,88 @@ export function Step2SelectAudience({
         </div>
       )}
 
+      {audience.type === 'csv' && (
+        <div className="space-y-3 rounded-xl border border-slate-800 bg-slate-900/50 p-4">
+          <p className="text-sm font-medium text-white">Upload CSV File</p>
+          <div className="flex flex-col gap-3">
+            <p className="text-xs text-slate-400">
+              Your CSV should contain a <code>phone</code> column (required) and an optional <code>name</code> column. 
+              Phone numbers should include the country code.
+            </p>
+            <div className="flex items-center gap-3">
+              <input
+                type="file"
+                accept=".csv"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  const reader = new FileReader();
+                  reader.onload = (event) => {
+                    const text = event.target?.result as string;
+                    if (!text) return;
+                    
+                    const lines = text.split(/\r?\n/).filter(line => line.trim().length > 0);
+                    if (lines.length === 0) return;
+                    
+                    // Simple CSV parser handling basic quoting
+                    const parseLine = (line: string) => {
+                      const result = [];
+                      let current = '';
+                      let inQuotes = false;
+                      for (let i = 0; i < line.length; i++) {
+                        const char = line[i];
+                        if (char === '"') {
+                          inQuotes = !inQuotes;
+                        } else if (char === ',' && !inQuotes) {
+                          result.push(current.trim());
+                          current = '';
+                        } else {
+                          current += char;
+                        }
+                      }
+                      result.push(current.trim());
+                      return result;
+                    };
+
+                    const headers = parseLine(lines[0]).map(h => h.toLowerCase().replace(/["']/g, ''));
+                    let phoneIdx = headers.findIndex(h => h.includes('phone') || h.includes('number'));
+                    let nameIdx = headers.findIndex(h => h.includes('name'));
+
+                    let startIndex = 1;
+                    if (phoneIdx === -1) {
+                      // Assume no headers if phone not found, use first column as phone
+                      phoneIdx = 0;
+                      nameIdx = 1;
+                      startIndex = 0;
+                    }
+
+                    const parsedContacts = [];
+                    for (let i = startIndex; i < lines.length; i++) {
+                      const columns = parseLine(lines[i]);
+                      const phone = columns[phoneIdx]?.replace(/["']/g, '').trim();
+                      const name = nameIdx !== -1 && columns[nameIdx] ? columns[nameIdx].replace(/["']/g, '').trim() : undefined;
+                      
+                      if (phone) {
+                        parsedContacts.push({ phone, name });
+                      }
+                    }
+
+                    onUpdate({ ...audience, csvContacts: parsedContacts });
+                  };
+                  reader.readAsText(file);
+                }}
+                className="block w-full text-sm text-slate-400 file:mr-4 file:rounded-full file:border-0 file:bg-violet-500/10 file:px-4 file:py-2 file:text-sm file:font-medium file:text-violet-400 hover:file:bg-violet-500/20"
+              />
+            </div>
+            {audience.csvContacts && audience.csvContacts.length > 0 && (
+              <p className="text-xs text-emerald-400">
+                Successfully loaded {audience.csvContacts.length} contacts from CSV.
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Exclude list — applies regardless of audience type */}
       <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-4">
         <div className="mb-3 flex items-center gap-2">
