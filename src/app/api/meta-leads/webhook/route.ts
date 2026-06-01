@@ -152,12 +152,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
   }
 
-  // Process asynchronously
-  processLeadgenEntries(body.entry, config).catch(e => {
-    console.error('Error processing leadgen entries:', e);
-  });
+  // Process synchronously so Vercel does not kill the function before automations finish.
+  // Meta allows up to 15 seconds for a response.
+  try {
+    await processLeadgenEntries(body.entry, config)
+  } catch (e) {
+    console.error('Error processing leadgen entries:', e)
+  }
 
-  return NextResponse.json({ status: 'received' }, { status: 200 });
+  return NextResponse.json({ status: 'received' }, { status: 200 })
 }
 
 async function getPageAccessToken(userAccessToken: string, pageId: string): Promise<string> {
