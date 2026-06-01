@@ -7,9 +7,13 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-async function run() {
-  const { data, error } = await supabase.rpc('get_table_info', { table_name: 'automation_logs' }).catch(() => ({}));
-  console.log(data || error);
-}
+  async function run() {
+    try {
+      const { data, error } = await supabase.rpc('get_table_info', { table_name: 'automation_logs' })
+      console.log(data || error)
+    } catch (e) {
+      console.error('RPC error:', e)
+    }
+  }
 
-run();
+  run();
