@@ -17,6 +17,7 @@ export interface MetaLeadData {
   ad_name?: string;
   adset_name?: string;
   campaign_name?: string;
+  campaign_id?: string;
   form_name?: string;
   is_organic?: boolean;
   platform?: string;
@@ -35,7 +36,7 @@ export async function fetchLeadData(leadgenId: string, accessToken: string): Pro
   
   // We can ask for specific fields if we want, but default usually includes field_data.
   // Better to explicitly request fields to get campaign/ad info.
-  url.searchParams.append('fields', 'id,created_time,ad_id,form_id,ad_name,adset_name,campaign_name,form_name,is_organic,platform,field_data');
+  url.searchParams.append('fields', 'id,created_time,ad_id,form_id,ad_name,adset_name,campaign_name,campaign_id,form_name,is_organic,platform,field_data');
 
   const res = await fetch(url.toString());
   const data = await res.json();
@@ -289,9 +290,11 @@ export async function processMetaLead(
     // 6. Fire Automations
     const automationCtx = {
       vars: {
+        page_id: config.page_id,
         form_id: formId,
         form_name: leadData.form_name,
         campaign_name: leadData.campaign_name,
+        campaign_id: leadData.campaign_id,
         ad_id: leadData.ad_id
       },
       lead: leadData // Make available for interpolation

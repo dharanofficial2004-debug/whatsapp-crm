@@ -112,15 +112,24 @@ export async function POST(request: Request) {
     return NextResponse.json({ status: 'received' }, { status: 200 });
   }
 
-  const { data: config, error } = await supabaseAdmin()
+  const { data: configs, error } = await supabaseAdmin()
     .from('meta_ads_config')
     .select('*')
-    .eq('page_id', pageId)
-    .eq('is_active', true)
-    .single();
+    .eq('is_active', true);
 
-  if (error || !config) {
-    console.warn(`[meta-leads] No active config for page_id: ${pageId}`);
+  if (error || !configs) {
+    console.warn(`[meta-leads] Error fetching configs:`, error);
+    return NextResponse.json({ status: 'received' }, { status: 200 });
+  }
+
+  // Find the config where page_id (which is a comma-separated list of page IDs) contains pageId
+  const config = configs.find((c: any) => {
+    const ids = (c.page_id || '').split(',');
+    return ids.includes(pageId);
+  });
+
+  if (!config) {
+    console.warn(`[meta-leads] No active config contains page_id: ${pageId}`);
     return NextResponse.json({ status: 'received' }, { status: 200 });
   }
 
@@ -151,18 +160,49 @@ export async function POST(request: Request) {
   return NextResponse.json({ status: 'received' }, { status: 200 });
 }
 
+async function getPageAccessToken(userAccessToken: string, pageId: string): Promise<string> {
+  const url = new URL('https://graph.facebook.com/v20.0/me/accounts');
+  url.searchParams.append('access_token', userAccessToken);
+  url.searchParams.append('limit', '100');
+  const res = await fetch(url.toString());
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.error?.message || 'Failed to fetch page token');
+  }
+  const page = data.data?.find((p: any) => p.id === pageId);
+  if (!page) {
+    throw new Error(`Page ${pageId} not found in accounts list`);
+  }
+  return page.access_token;
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function processLeadgenEntries(entries: any[], config: any) {
-  config.page_access_token = decrypt(config.page_access_token); // Decrypt once
+  const decryptedUserToken = decrypt(config.page_access_token);
 
   for (const entry of entries) {
+    const pageId = entry.id; // Webhook page ID
+    let pageAccessToken;
+    try {
+      pageAccessToken = await getPageAccessToken(decryptedUserToken, pageId);
+    } catch (err) {
+      console.error(`[meta-leads webhook] Failed to resolve page token for page ${pageId}:`, err);
+      continue;
+    }
+
+    const pageConfig = {
+      ...config,
+      page_id: pageId, // Override to the specific active Page ID so it can be passed to automations
+      page_access_token: pageAccessToken
+    };
+
     for (const change of (entry.changes || [])) {
       if (change.field === 'leadgen') {
         const leadgenId = change.value.leadgen_id;
         const formId = change.value.form_id;
         
         if (leadgenId) {
-          await processMetaLead(config, leadgenId, formId);
+          await processMetaLead(pageConfig, leadgenId, formId);
         }
       }
     }

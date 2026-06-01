@@ -267,8 +267,12 @@ export interface TimeBasedTriggerConfig {
 }
 
 export interface MetaLeadTriggerConfig {
+  /** Optional — if set, the automation only fires for this specific page. */
+  page_id?: string;
   /** Optional — if set, the automation only fires for this specific form. */
   form_id?: string;
+  /** Optional — if set, the automation only fires for this specific campaign. */
+  campaign_id?: string;
 }
 
 export type AutomationTriggerConfig =
@@ -402,6 +406,7 @@ export interface MetaAdsConfig {
   user_id: string;
   meta_app_id: string;
   meta_app_secret: string;
+  ad_account_id?: string;
   page_id: string;
   page_access_token: string;
   verify_token?: string;

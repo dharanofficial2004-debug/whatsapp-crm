@@ -292,20 +292,35 @@ describe('processMetaLead', () => {
       params: ['Alice Smith'],
     });
 
-    // Verify automation trigger was fired
+    // Verify automation triggers were fired
+    const expectedContext = {
+      vars: {
+        page_id: 'page-xyz',
+        form_id: 'form-123',
+        form_name: 'Test Form',
+        campaign_name: 'Summer Campaign',
+        campaign_id: undefined,
+        ad_id: 'ad-000',
+      },
+      lead: mockLeadData,
+    };
+
+    // new_contact_created fires first since this is a new contact
+    expect(runAutomationsForTrigger).toHaveBeenCalledWith({
+      userId: config.user_id,
+      triggerType: 'new_contact_created',
+      contactId: 'new-contact-id',
+      context: expectedContext,
+    });
+
+    // Then meta_lead_form_submitted
     expect(runAutomationsForTrigger).toHaveBeenCalledWith({
       userId: config.user_id,
       triggerType: 'meta_lead_form_submitted',
       contactId: 'new-contact-id',
-      context: {
-        vars: {
-          form_id: 'form-123',
-          form_name: 'Test Form',
-          campaign_name: 'Summer Campaign',
-          ad_id: 'ad-000',
-        },
-        lead: mockLeadData,
-      },
+      context: expectedContext,
     });
+
+    expect(runAutomationsForTrigger).toHaveBeenCalledTimes(2);
   });
 });

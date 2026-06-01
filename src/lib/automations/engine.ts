@@ -482,8 +482,14 @@ function triggerMatches(automation: Automation, ctx: AutomationContext | undefin
   if (automation.trigger_type === 'meta_lead_form_submitted') {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const cfg = automation.trigger_config as any
+    if (cfg?.page_id && ctx?.vars?.page_id) {
+      if (cfg.page_id !== ctx.vars.page_id) return false
+    }
     if (cfg?.form_id && ctx?.vars?.form_id) {
       if (cfg.form_id !== ctx.vars.form_id) return false
+    }
+    if (cfg?.campaign_id && ctx?.vars?.campaign_id) {
+      if (cfg.campaign_id !== ctx.vars.campaign_id) return false
     }
     return true
   }

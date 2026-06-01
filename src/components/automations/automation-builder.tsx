@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import {
@@ -36,6 +36,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import type {
   AutomationStepType,
   AutomationTriggerType,
@@ -396,23 +403,196 @@ function TriggerCard({
               />
             )}
             {type === "meta_lead_form_submitted" && (
-              <div>
-                <Input
-                  placeholder="Form ID (optional)"
-                  value={(config.form_id as string) ?? ""}
-                  onChange={(e) =>
-                    onConfigChange({ ...config, form_id: e.target.value })
-                  }
-                  className="bg-slate-800 text-white"
-                />
-                <p className="mt-1 text-[11px] text-slate-500">
-                  Leave blank to trigger for all forms.
-                </p>
-              </div>
+              <MetaLeadTriggerConfigUI config={config} onChange={onConfigChange} />
             )}
           </div>
         )}
       </div>
+    </div>
+  )
+}
+
+function MetaLeadTriggerConfigUI({
+  config,
+  onChange,
+}: {
+  config: Record<string, unknown>
+  onChange: (c: Record<string, unknown>) => void
+}) {
+  const [loadingPages, setLoadingPages] = useState(false)
+  const [loadingForms, setLoadingForms] = useState(false)
+  const [loadingCampaigns, setLoadingCampaigns] = useState(false)
+  const [pages, setPages] = useState<any[]>([])
+  const [forms, setForms] = useState<any[]>([])
+  const [campaigns, setCampaigns] = useState<any[]>([])
+
+  useEffect(() => {
+    async function fetchPages() {
+      setLoadingPages(true)
+      try {
+        const res = await fetch("/api/meta-leads/sync-pages")
+        if (res.ok) {
+          const data = await res.json()
+          if (Array.isArray(data)) setPages(data)
+        }
+      } catch (err) {
+        console.error("Failed to fetch pages", err)
+      } finally {
+        setLoadingPages(false)
+      }
+    }
+    fetchPages()
+  }, [])
+
+  useEffect(() => {
+    if (!config.page_id) {
+      setForms([])
+      return
+    }
+    async function fetchForms() {
+      setLoadingForms(true)
+      try {
+        const res = await fetch(`/api/meta-leads/sync-forms?page_id=${config.page_id}`)
+        if (res.ok) {
+          const data = await res.json()
+          if (Array.isArray(data)) setForms(data)
+        }
+      } catch (err) {
+        console.error("Failed to fetch forms", err)
+      } finally {
+        setLoadingForms(false)
+      }
+    }
+    fetchForms()
+  }, [config.page_id])
+
+  useEffect(() => {
+    async function fetchCampaigns() {
+      setLoadingCampaigns(true)
+      try {
+        const res = await fetch("/api/meta-leads/sync-campaigns")
+        if (res.ok) {
+          const data = await res.json()
+          if (Array.isArray(data)) setCampaigns(data)
+        }
+      } catch (err) {
+        console.error("Failed to fetch campaigns", err)
+      } finally {
+        setLoadingCampaigns(false)
+      }
+    }
+    fetchCampaigns()
+  }, [])
+
+  const selectedForm = forms.find(f => f.id === config.form_id)
+  
+  return (
+    <div className="space-y-4">
+      {/* 1. Page Selection (Compulsory) */}
+      <div>
+        <label className="mb-1 block text-xs font-medium text-slate-400">
+          Target Facebook Page <span className="text-red-500">*</span>
+        </label>
+        {loadingPages ? (
+          <div className="flex items-center text-xs text-slate-400 h-9 px-3 bg-slate-800 rounded-md">
+            <Loader2 className="mr-2 size-3 animate-spin" /> Loading pages...
+          </div>
+        ) : (
+          <Select
+            value={(config.page_id as string) || ""}
+            onValueChange={(val) => onChange({ ...config, page_id: val, form_id: "", campaign_id: "" })}
+          >
+            <SelectTrigger className="bg-slate-800 border-slate-700 text-white">
+              <SelectValue placeholder="Select Facebook Page" />
+            </SelectTrigger>
+            <SelectContent>
+              {pages.map(p => (
+                <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+      </div>
+
+      {!config.page_id ? (
+        <div className="text-xs text-slate-500 bg-slate-850 p-2.5 rounded border border-dashed border-slate-800">
+          Please select a Facebook Page to load its lead forms and campaigns.
+        </div>
+      ) : null}
+
+      {!!config.page_id && (
+        <>
+          {/* 2. Lead Form Selection */}
+          <div>
+            <label className="mb-1 block text-xs font-medium text-slate-400">
+              Target Lead Form <span className="text-slate-500">(Optional)</span>
+            </label>
+            {loadingForms ? (
+              <div className="flex items-center text-xs text-slate-400 h-9 px-3 bg-slate-800 rounded-md">
+                <Loader2 className="mr-2 size-3 animate-spin" /> Loading forms...
+              </div>
+            ) : (
+              <Select
+                value={(config.form_id as string) || "all"}
+                onValueChange={(val) => onChange({ ...config, form_id: val === "all" ? "" : val })}
+              >
+                <SelectTrigger className="bg-slate-800 border-slate-700 text-white">
+                  <SelectValue placeholder="All Forms" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Forms</SelectItem>
+                  {forms.map(f => (
+                    <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
+
+          {selectedForm && selectedForm.questions && selectedForm.questions.length > 0 && (
+            <div className="rounded-md border border-slate-700 bg-slate-800/50 p-3">
+              <p className="text-xs font-medium text-slate-300 mb-2">Available Form Variables</p>
+              <div className="space-y-1">
+                {selectedForm.questions.map((q: any) => (
+                  <div key={q.key} className="flex justify-between items-center text-[11px]">
+                    <span className="text-slate-400">{q.label}</span>
+                    <code className="text-violet-400 bg-violet-950/30 px-1.5 py-0.5 rounded">
+                      {`{{lead.${q.key}}}`}
+                    </code>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 3. Campaign Selection */}
+          <div>
+            <label className="mb-1 block text-xs font-medium text-slate-400">
+              Target Campaign <span className="text-slate-500">(Optional)</span>
+            </label>
+            {loadingCampaigns ? (
+              <div className="flex items-center text-xs text-slate-400 h-9 px-3 bg-slate-800 rounded-md">
+                <Loader2 className="mr-2 size-3 animate-spin" /> Loading campaigns...
+              </div>
+            ) : (
+              <Select
+                value={(config.campaign_id as string) || "all"}
+                onValueChange={(val) => onChange({ ...config, campaign_id: val === "all" ? "" : val })}
+              >
+                <SelectTrigger className="bg-slate-800 border-slate-700 text-white">
+                  <SelectValue placeholder="All Campaigns" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Campaigns</SelectItem>
+                  {campaigns.map(c => (
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
+        </>
+      )}
     </div>
   )
 }

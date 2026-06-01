@@ -49,7 +49,7 @@ export function MetaAdsConfig() {
   
   const [metaAppId, setMetaAppId] = useState('');
   const [metaAppSecret, setMetaAppSecret] = useState('');
-  const [pageId, setPageId] = useState('');
+  const [adAccountId, setAdAccountId] = useState('');
   const [pageAccessToken, setPageAccessToken] = useState('');
   const [verifyToken, setVerifyToken] = useState('');
   const [isActive, setIsActive] = useState(true);
@@ -76,7 +76,7 @@ export function MetaAdsConfig() {
         setConfig(configData);
         setMetaAppId(configData.meta_app_id || '');
         setMetaAppSecret(configData.meta_app_secret || MASKED_TOKEN);
-        setPageId(configData.page_id || '');
+        setAdAccountId(configData.ad_account_id || '');
         setPageAccessToken(configData.page_access_token || MASKED_TOKEN);
         setIsActive(configData.is_active ?? true);
         setVerifyToken('');
@@ -101,12 +101,12 @@ export function MetaAdsConfig() {
   }, [fetchData]);
 
   async function handleSave() {
-    if (!metaAppId.trim() || !pageId.trim()) {
-      toast.error('App ID and Page ID are required');
+    if (!metaAppId.trim()) {
+      toast.error('Meta App ID is required');
       return;
     }
     if (!config && (!metaAppSecret.trim() || !pageAccessToken.trim())) {
-      toast.error('App Secret and Page Access Token are required for initial setup');
+      toast.error('App Secret and Access Token are required for initial setup');
       return;
     }
 
@@ -115,7 +115,7 @@ export function MetaAdsConfig() {
 
       const payload: Record<string, unknown> = {
         meta_app_id: metaAppId.trim(),
-        page_id: pageId.trim(),
+        ad_account_id: adAccountId.trim(),
         is_active: isActive,
         verify_token: verifyToken.trim() || null,
       };
@@ -162,7 +162,7 @@ export function MetaAdsConfig() {
       setConfig(null);
       setMetaAppId('');
       setMetaAppSecret('');
-      setPageId('');
+      setAdAccountId('');
       setPageAccessToken('');
       setVerifyToken('');
     } catch (err) {
@@ -263,48 +263,53 @@ export function MetaAdsConfig() {
               </div>
             </div>
 
+            <div className="space-y-2">
+              <Label className="text-slate-300">Access Token</Label>
+              <div className="relative">
+                <Input
+                  type={showToken ? 'text' : 'password'}
+                  value={pageAccessToken}
+                  onChange={(e) => setPageAccessToken(e.target.value)}
+                  onFocus={() => { if (pageAccessToken === MASKED_TOKEN) setPageAccessToken(''); }}
+                  placeholder="Paste your System User or Page Access Token"
+                  className="bg-slate-800 border-slate-700 text-white pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowToken(!showToken)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                >
+                  {showToken ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                </button>
+              </div>
+              <p className="text-xs text-slate-500">
+                Provide a System User Access Token (or a Page Access Token) containing leads_retrieval, pages_manage_ads, and pages_read_engagement permissions.
+              </p>
+            </div>
+
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <Label className="text-slate-300">Facebook Page ID</Label>
+                <Label className="text-slate-300">Ad Account ID <span className="text-slate-500 font-normal">(Optional, for Campaign Sync)</span></Label>
                 <Input
-                  value={pageId}
-                  onChange={(e) => setPageId(e.target.value)}
+                  value={adAccountId}
+                  onChange={(e) => setAdAccountId(e.target.value)}
+                  placeholder="e.g. act_123456789"
                   className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label className="text-slate-300">Page Access Token</Label>
-                <div className="relative">
-                  <Input
-                    type={showToken ? 'text' : 'password'}
-                    value={pageAccessToken}
-                    onChange={(e) => setPageAccessToken(e.target.value)}
-                    onFocus={() => { if (pageAccessToken === MASKED_TOKEN) setPageAccessToken(''); }}
-                    className="bg-slate-800 border-slate-700 text-white pr-10"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowToken(!showToken)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
-                  >
-                    {showToken ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-                  </button>
-                </div>
+                <Label className="text-slate-300">Webhook Verify Token</Label>
+                <Input
+                  placeholder="Create a custom verify token"
+                  value={verifyToken}
+                  onChange={(e) => setVerifyToken(e.target.value)}
+                  className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500"
+                />
+                <p className="text-xs text-slate-500">
+                  Must match the token you set in Meta webhook settings.
+                </p>
               </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label className="text-slate-300">Webhook Verify Token</Label>
-              <Input
-                placeholder="Create a custom verify token"
-                value={verifyToken}
-                onChange={(e) => setVerifyToken(e.target.value)}
-                className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500"
-              />
-              <p className="text-xs text-slate-500">
-                A custom string you create. Must match the token you set in Meta webhook settings.
-              </p>
             </div>
           </CardContent>
         </Card>
