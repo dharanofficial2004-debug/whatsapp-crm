@@ -116,6 +116,7 @@ const TRIGGER_OPTIONS: { value: AutomationTriggerType; label: string; hint: stri
   { value: "conversation_assigned", label: "Conversation Assigned", hint: "When assigned to an agent" },
   { value: "tag_added", label: "Tag Added", hint: "When a tag is added to a contact" },
   { value: "time_based", label: "Time-Based", hint: "On a recurring schedule" },
+  { value: "meta_lead_form_submitted", label: "Meta Lead Form Submitted", hint: "When a new lead form submission is received from Meta Ads" },
 ]
 
 function cid(): string {
@@ -393,6 +394,21 @@ function TriggerCard({
                 }
                 className="bg-slate-800 text-white"
               />
+            )}
+            {type === "meta_lead_form_submitted" && (
+              <div>
+                <Input
+                  placeholder="Form ID (optional)"
+                  value={(config.form_id as string) ?? ""}
+                  onChange={(e) =>
+                    onConfigChange({ ...config, form_id: e.target.value })
+                  }
+                  className="bg-slate-800 text-white"
+                />
+                <p className="mt-1 text-[11px] text-slate-500">
+                  Leave blank to trigger for all forms.
+                </p>
+              </div>
             )}
           </div>
         )}

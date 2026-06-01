@@ -46,6 +46,7 @@ interface BroadcastResult {
 interface NewRecipient {
   phone: string
   params?: string[]
+  header_media_url?: string
 }
 
 export async function POST(request: Request) {
@@ -76,6 +77,7 @@ export async function POST(request: Request) {
       template_name,
       template_language,
       template_params,
+      header_media_url,
     } = body
 
     // Normalize to a list of {phone, params} regardless of shape.
@@ -157,6 +159,7 @@ export async function POST(request: Request) {
             templateName: template_name,
             language: template_language || 'en_US',
             params: recipient.params ?? [],
+            headerImageUrl: recipient.header_media_url || header_media_url || undefined,
           })
           sentMessageId = result.messageId
           lastError = null

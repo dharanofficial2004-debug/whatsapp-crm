@@ -75,7 +75,7 @@ export interface Conversation {
 }
 
 export type SenderType = 'customer' | 'agent' | 'bot';
-export type ContentType = 'text' | 'image' | 'document' | 'audio' | 'video' | 'location' | 'template';
+export type ContentType = 'text' | 'image' | 'document' | 'audio' | 'video' | 'location' | 'template' | 'button';
 export type MessageStatus = 'sending' | 'sent' | 'delivered' | 'read' | 'failed';
 
 export interface Message {
@@ -232,7 +232,8 @@ export type AutomationTriggerType =
   | 'new_contact_created'
   | 'conversation_assigned'
   | 'tag_added'
-  | 'time_based';
+  | 'time_based'
+  | 'meta_lead_form_submitted';
 
 export type AutomationStepType =
   | 'send_message'
@@ -265,11 +266,17 @@ export interface TimeBasedTriggerConfig {
   timezone?: string;
 }
 
+export interface MetaLeadTriggerConfig {
+  /** Optional — if set, the automation only fires for this specific form. */
+  form_id?: string;
+}
+
 export type AutomationTriggerConfig =
   | Record<string, never>
   | KeywordMatchTriggerConfig
   | TagTriggerConfig
   | TimeBasedTriggerConfig
+  | MetaLeadTriggerConfig
   | Record<string, unknown>;
 
 export interface SendMessageStepConfig {
@@ -384,4 +391,51 @@ export interface AutomationLog {
   error_message?: string | null;
   created_at: string;
   contact?: Contact;
+}
+
+// ============================================================
+// Meta Lead Ads (migration 010)
+// ============================================================
+
+export interface MetaAdsConfig {
+  id: string;
+  user_id: string;
+  meta_app_id: string;
+  meta_app_secret: string;
+  page_id: string;
+  page_access_token: string;
+  verify_token?: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MetaLeadEvent {
+  id: string;
+  user_id: string;
+  leadgen_id: string;
+  form_id?: string;
+  form_name?: string;
+  campaign_name?: string;
+  ad_id?: string;
+  contact_id?: string | null;
+  lead_data: Record<string, unknown>;
+  status: 'received' | 'processed' | 'failed';
+  error_message?: string;
+  template_sent: boolean;
+  created_at: string;
+}
+
+export interface MetaLeadFormConfig {
+  id: string;
+  user_id: string;
+  form_id: string;
+  form_name?: string;
+  auto_tag_name?: string;
+  template_name?: string;
+  template_language: string;
+  template_variables: Record<string, unknown>;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
 }

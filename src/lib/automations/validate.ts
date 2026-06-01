@@ -168,6 +168,8 @@ export function validateTriggerForActivation(
     if (!nonEmpty(cfg.tag_id)) {
       issues.push({ path: 'trigger.tag_id', message: 'tag is required' })
     }
+  } else if (triggerType === 'meta_lead_form_submitted') {
+    // form_id is optional, so no strict validation required
   }
 
   return issues

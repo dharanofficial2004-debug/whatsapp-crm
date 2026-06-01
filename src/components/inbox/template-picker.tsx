@@ -25,7 +25,7 @@ import {
 interface TemplatePickerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSelect: (template: MessageTemplate, params: string[]) => void;
+  onSelect: (template: MessageTemplate, params: string[], headerImageUrl?: string) => void;
 }
 
 // Meta numbers template placeholders from 1 ({{1}}, {{2}}, …) and the
@@ -57,6 +57,7 @@ export function TemplatePicker({
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<MessageTemplate | null>(null);
   const [params, setParams] = useState<string[]>([]);
+  const [headerImageUrl, setHeaderImageUrl] = useState("");
 
   useEffect(() => {
     if (!open) return;
@@ -106,31 +107,36 @@ export function TemplatePicker({
     if (!next) {
       setSelected(null);
       setParams([]);
+      setHeaderImageUrl("");
     }
     onOpenChange(next);
   }
 
   function pickTemplate(template: MessageTemplate) {
     const vars = extractVariables(template.body_text);
-    if (vars.length === 0) {
-      onSelect(template, []);
+    const hasImageHeader = template.header_type === 'image';
+    if (vars.length === 0 && !hasImageHeader) {
+      onSelect(template, [], undefined);
       handleOpenChange(false);
       return;
     }
     setSelected(template);
     setParams(new Array(vars.length).fill(""));
+    setHeaderImageUrl("");
   }
 
   function confirm() {
     if (!selected) return;
-    onSelect(selected, params);
+    onSelect(selected, params, headerImageUrl || undefined);
     handleOpenChange(false);
   }
 
   const variables = selected ? extractVariables(selected.body_text) : [];
+  const hasImageHeader = selected?.header_type === 'image';
   const canConfirm =
     !!selected &&
-    variables.every((_, i) => (params[i] ?? "").trim().length > 0);
+    variables.every((_, i) => (params[i] ?? "").trim().length > 0) &&
+    (!hasImageHeader || headerImageUrl.trim().length > 0);
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -198,6 +204,18 @@ export function TemplatePicker({
           <div className="space-y-3">
             <div className="rounded-md border border-slate-800 bg-slate-950/50 p-3">
               <p className="mb-1 text-xs text-slate-400">Preview</p>
+              {selected.header_type === 'image' && headerImageUrl && (
+                <div className="mb-2 overflow-hidden rounded bg-slate-950/20 max-h-32">
+                  <img
+                    src={headerImageUrl}
+                    alt="Header image preview"
+                    className="max-h-32 w-full object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLElement).style.display = 'none';
+                    }}
+                  />
+                </div>
+              )}
               <p className="whitespace-pre-wrap text-sm text-slate-200">
                 {renderBodyPreview(selected.body_text, params)}
               </p>
@@ -207,6 +225,17 @@ export function TemplatePicker({
                 </p>
               )}
             </div>
+            {selected.header_type === 'image' && (
+              <div className="space-y-1">
+                <Label className="text-xs text-slate-300">Header Image URL</Label>
+                <Input
+                  value={headerImageUrl}
+                  onChange={(e) => setHeaderImageUrl(e.target.value)}
+                  placeholder="https://example.com/image.png"
+                  className="border-slate-700 bg-slate-800 text-white placeholder:text-slate-500"
+                />
+              </div>
+            )}
             {variables.map((v, i) => (
               <div key={v} className="space-y-1">
                 <Label className="text-xs text-slate-300">{`Variable {{${v}}}`}</Label>

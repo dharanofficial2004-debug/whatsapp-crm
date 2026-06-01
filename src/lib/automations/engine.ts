@@ -32,6 +32,9 @@ export interface AutomationContext {
   tag_id?: string
   /** Agent the conversation was assigned to, for conversation_assigned. */
   agent_id?: string
+  /** Lead data from Meta Graph API, for meta_lead_form_submitted. */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  lead?: any
 }
 
 export interface DispatchInput {
@@ -318,24 +321,24 @@ async function runStep(step: AutomationStep, args: ExecuteArgs): Promise<string>
       if (!args.contactId) throw new Error('send_template needs a contact')
       if (!cfg.template_name) throw new Error('send_template needs template_name')
       const conversationId = await resolveConversationId(args)
-      // Meta templates use positional {{1}}, {{2}}, … placeholders, so
-      // we MUST emit params in strict numeric order. Lexicographic sort
-      // of "1", "2", …, "10" yields "1", "10", "2", … which silently
-      // scrambles every template with ≥10 variables.
-      const params = cfg.variables
-        ? Object.keys(cfg.variables)
-            .sort((a, b) => {
-              const na = Number(a)
-              const nb = Number(b)
-              const aNum = Number.isFinite(na)
-              const bNum = Number.isFinite(nb)
-              if (aNum && bNum) return na - nb
-              if (aNum) return -1
-              if (bNum) return 1
-              return a.localeCompare(b)
-            })
-            .map((k) => String(cfg.variables![k]))
-        : []
+      // Build params, ignoring special 'header_image' variable
+      const vars = cfg.variables ?? {}
+      const paramKeys = Object.keys(vars).filter((k) => k !== 'header_image')
+      const params = paramKeys.sort((a, b) => {
+        const na = Number(a)
+        const nb = Number(b)
+        const aNum = Number.isFinite(na)
+        const bNum = Number.isFinite(nb)
+        if (aNum && bNum) return na - nb
+        if (aNum) return -1
+        if (bNum) return 1
+        return a.localeCompare(b)
+      }).map((k) => String(interpolate(vars[k], args)))
+      // Header image URL if provided
+      let headerImageUrl: string | undefined = undefined
+      if (vars['header_image']) {
+        headerImageUrl = interpolate(vars['header_image'], args)
+      }
       const { whatsapp_message_id } = await engineSendTemplate({
         userId: args.automation.user_id,
         conversationId,
@@ -343,6 +346,7 @@ async function runStep(step: AutomationStep, args: ExecuteArgs): Promise<string>
         templateName: cfg.template_name,
         language: cfg.language,
         params,
+        headerImageUrl,
       })
       return `template sent via Meta (${whatsapp_message_id})`
     }
@@ -475,6 +479,15 @@ async function resolveConversationId(args: ExecuteArgs): Promise<string> {
 }
 
 function triggerMatches(automation: Automation, ctx: AutomationContext | undefined): boolean {
+  if (automation.trigger_type === 'meta_lead_form_submitted') {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const cfg = automation.trigger_config as any
+    if (cfg?.form_id && ctx?.vars?.form_id) {
+      if (cfg.form_id !== ctx.vars.form_id) return false
+    }
+    return true
+  }
+
   if (automation.trigger_type !== 'keyword_match') return true
   const cfg = automation.trigger_config as KeywordMatchTriggerConfig
   if (!cfg?.keywords || cfg.keywords.length === 0) return false
@@ -543,6 +556,11 @@ function interpolate(s: string, args: ExecuteArgs): string {
     const [ns, prop] = String(key).split('.')
     if (ns === 'message' && prop === 'text') return String(args.context.message_text ?? '')
     if (ns === 'vars' && prop) return String(args.context.vars?.[prop] ?? '')
+    if (ns === 'lead' && prop && args.context.lead?.field_data) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const field = args.context.lead.field_data.find((f: any) => f.name === prop)
+      if (field && field.values && field.values.length > 0) return String(field.values[0])
+    }
     return ''
   })
 }

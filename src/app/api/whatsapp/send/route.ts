@@ -43,8 +43,10 @@ export async function POST(request: Request) {
       message_type,
       content_text,
       media_url,
+      header_image,
       template_name,
       template_params,
+      template_language = 'en_US',
       reply_to_message_id,
     } = body
 
@@ -178,25 +180,31 @@ export async function POST(request: Request) {
 
     const attempt = async (phone: string): Promise<string> => {
       if (message_type === 'template') {
-        const result = await sendTemplateMessage({
-          phoneNumberId: config.phone_number_id,
-          accessToken,
-          to: phone,
-          templateName: template_name,
-          params: template_params || [],
-          contextMessageId,
-        })
-        return result.messageId
+        console.log('Attempting to send template', { template_name, template_language, phone });
+          // Ensure language is defined; fallback to en_US
+          const language = template_language === 'en' ? 'en_US' : (template_language || 'en_US');
+          const result = await sendTemplateMessage({
+            phoneNumberId: config.phone_number_id,
+            accessToken: accessToken,
+            to: phone,
+            templateName: template_name,
+            language: language,
+            params: template_params || [],
+            headerImageUrl: header_image || undefined,
+            contextMessageId,
+          });
+        console.log('Template send result', result);
+        return result.messageId;
       }
       const result = await sendTextMessage({
         phoneNumberId: config.phone_number_id,
-        accessToken,
+        accessToken: accessToken,
         to: phone,
         text: content_text,
         contextMessageId,
-      })
-      return result.messageId
-    }
+      });
+      return result.messageId;
+    };
 
     try {
       const variants = phoneVariants(sanitizedPhone)

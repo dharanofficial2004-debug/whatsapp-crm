@@ -212,6 +212,12 @@ function MessageContent({ message }: { message: Message }) {
         </div>
       );
 
+    case "button":
+      return (
+        <button className="rounded bg-violet-600 px-2 py-1 text-sm text-white hover:bg-violet-700">
+          {message.content_text}
+        </button>
+      );
     default:
       return (
         <p className="whitespace-pre-wrap break-words text-sm">

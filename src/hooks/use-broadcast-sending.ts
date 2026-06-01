@@ -76,6 +76,27 @@ type CustomValueIndex = Map<string, Map<string, string>>;
  * built-in-field mappings resolve synchronously; custom fields read
  * from a pre-built index to avoid N+1 queries during the send loop.
  */
+export function resolveSingleVariableValue(
+  v: VariableMapping,
+  contact: Contact,
+  customValues?: Map<string, string>,
+): string {
+  if (v.type === 'static') return v.value;
+
+  if (v.type === 'field') {
+    const fieldMap: Record<string, string | undefined> = {
+      name: contact.name,
+      phone: contact.phone,
+      email: contact.email,
+      company: contact.company,
+    };
+    return fieldMap[v.value] ?? '';
+  }
+
+  // custom_field
+  return customValues?.get(v.value) ?? '';
+}
+
 export function resolveVariables(
   variables: Record<string, VariableMapping>,
   contact: Contact,
@@ -83,7 +104,8 @@ export function resolveVariables(
 ): string[] {
   // Keys are typically "1","2",... — numeric-aware sort keeps
   // {{1}} before {{10}}.
-  const keys = Object.keys(variables).sort((a, b) => {
+  // Exclude 'header_image' as it is a header parameter, not a body text parameter.
+  const keys = Object.keys(variables).filter(k => k !== 'header_image').sort((a, b) => {
     const an = Number(a);
     const bn = Number(b);
     if (Number.isFinite(an) && Number.isFinite(bn)) return an - bn;
@@ -92,20 +114,7 @@ export function resolveVariables(
 
   return keys.map((key) => {
     const v = variables[key];
-    if (v.type === 'static') return v.value;
-
-    if (v.type === 'field') {
-      const fieldMap: Record<string, string | undefined> = {
-        name: contact.name,
-        phone: contact.phone,
-        email: contact.email,
-        company: contact.company,
-      };
-      return fieldMap[v.value] ?? '';
-    }
-
-    // custom_field
-    return customValues?.get(v.value) ?? '';
+    return resolveSingleVariableValue(v, contact, customValues);
   });
 }
 
@@ -429,16 +438,29 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
 
         const apiRecipients = batch
           .filter((r) => r.contact?.phone)
-          .map((r) => ({
-            phone: r.contact!.phone as string,
-            params: r.contact
+          .map((r) => {
+            const resolvedParams = r.contact
               ? resolveVariables(
                   payload.variables,
                   r.contact,
                   customValueIndex.get(r.contact.id),
                 )
-              : [],
-          }));
+              : [];
+            const headerVar = payload.variables['header_image'];
+            const headerUrl = headerVar && r.contact
+              ? resolveSingleVariableValue(
+                  headerVar,
+                  r.contact,
+                  customValueIndex.get(r.contact.id)
+                )
+              : undefined;
+
+            return {
+              phone: r.contact!.phone as string,
+              params: resolvedParams,
+              header_media_url: headerUrl || undefined,
+            };
+          });
 
         if (apiRecipients.length === 0) continue;
 

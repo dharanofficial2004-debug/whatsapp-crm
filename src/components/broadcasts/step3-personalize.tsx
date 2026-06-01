@@ -119,6 +119,14 @@ export function Step3Personalize({
    */
   const unmappedKeys = useMemo(() => {
     const missing: string[] = [];
+
+    if (template.header_type === 'image') {
+      const mapping = variables['header_image'];
+      if (!mapping || !mapping.value?.trim()) {
+        missing.push('Header Image');
+      }
+    }
+
     for (const placeholder of placeholders) {
       const key = placeholder.replace(/^\{\{|\}\}$/g, '');
       const mapping = variables[key];
@@ -127,7 +135,7 @@ export function Step3Personalize({
       }
     }
     return missing;
-  }, [placeholders, variables]);
+  }, [placeholders, variables, template.header_type]);
 
   function updateVariable(key: string, patch: Partial<VariableMapping>) {
     const current = variables[key] ?? { type: 'static' as VariableType, value: '' };
@@ -183,6 +191,32 @@ export function Step3Personalize({
     ? firstContact.name || firstContact.phone
     : 'sample data';
 
+  const previewHeaderImageUrl = useMemo(() => {
+    if (template.header_type !== 'image') return null;
+    const mapping = variables['header_image'];
+    if (!mapping) return null;
+
+    const contact = firstContact ?? SAMPLE_CONTACT;
+    const customValues = firstContact
+      ? firstContactCustomValues
+      : new Map<string, string>();
+
+    if (mapping.type === 'static' && mapping.value) {
+      return mapping.value;
+    } else if (mapping.type === 'field' && mapping.value) {
+      const fieldMap: Record<string, string | undefined> = {
+        name: contact.name,
+        phone: contact.phone,
+        email: contact.email,
+        company: contact.company,
+      };
+      return fieldMap[mapping.value] ?? null;
+    } else if (mapping.type === 'custom_field' && mapping.value) {
+      return customValues.get(mapping.value) || null;
+    }
+    return null;
+  }, [template.header_type, variables, firstContact, firstContactCustomValues]);
+
   return (
     <div className="space-y-6">
       <div>
@@ -193,7 +227,7 @@ export function Step3Personalize({
         </p>
       </div>
 
-      {placeholders.length === 0 ? (
+      {placeholders.length === 0 && template.header_type !== 'image' ? (
         <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-6 text-center">
           <p className="text-sm text-slate-400">
             This template has no variables to personalize.
@@ -201,6 +235,109 @@ export function Step3Personalize({
         </div>
       ) : (
         <div className="space-y-4">
+          {template.header_type === 'image' && (() => {
+            const mapping = variables['header_image'] ?? { type: 'static', value: '' };
+            return (
+              <div
+                className="rounded-xl border border-slate-800 bg-slate-900/50 p-4"
+              >
+                <div className="mb-3 flex items-center gap-2">
+                  <span className="inline-flex items-center rounded-md bg-violet-500/10 px-2 py-0.5 text-xs font-mono font-medium text-violet-400">
+                    Header Image URL
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div>
+                    <label className="mb-1.5 block text-xs font-medium text-slate-400">
+                      Mapping Type
+                    </label>
+                    <Select
+                      value={mapping.type}
+                      onValueChange={(val) =>
+                        updateVariable('header_image', {
+                          type: val as VariableType,
+                          value: '',
+                        })
+                      }
+                    >
+                      <SelectTrigger className="w-full border-slate-700 bg-slate-800 text-white">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="border-slate-700 bg-slate-800">
+                        <SelectItem value="static">Static Value</SelectItem>
+                        <SelectItem value="field">Contact Field</SelectItem>
+                        <SelectItem value="custom_field">
+                          Custom Field
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <label className="mb-1.5 block text-xs font-medium text-slate-400">
+                      {mapping.type === 'static' ? 'Value' : 'Field'}
+                    </label>
+                    {mapping.type === 'static' ? (
+                      <Input
+                        value={mapping.value}
+                        onChange={(e) =>
+                          updateVariable('header_image', { value: e.target.value })
+                        }
+                        placeholder="Enter image URL..."
+                        className="border-slate-700 bg-slate-800 text-white placeholder:text-slate-500"
+                      />
+                    ) : mapping.type === 'field' ? (
+                      <Select
+                        value={mapping.value || undefined}
+                        onValueChange={(val) =>
+                          updateVariable('header_image', { value: val || '' })
+                        }
+                      >
+                        <SelectTrigger className="w-full border-slate-700 bg-slate-800 text-white">
+                          <SelectValue placeholder="Select field..." />
+                        </SelectTrigger>
+                        <SelectContent className="border-slate-700 bg-slate-800">
+                          {contactFields.map((field) => (
+                            <SelectItem key={field.value} value={field.value}>
+                              {field.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <Select
+                        value={mapping.value || undefined}
+                        onValueChange={(val) =>
+                          updateVariable('header_image', { value: val || '' })
+                        }
+                      >
+                        <SelectTrigger className="w-full border-slate-700 bg-slate-800 text-white">
+                          <SelectValue
+                            placeholder={
+                              loadingFields
+                                ? 'Loading…'
+                                : customFields.length === 0
+                                  ? 'No custom fields'
+                                  : 'Select custom field…'
+                            }
+                          />
+                        </SelectTrigger>
+                        <SelectContent className="border-slate-700 bg-slate-800">
+                          {customFields.map((f) => (
+                            <SelectItem key={f.id} value={f.id}>
+                              {f.field_name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+
           {placeholders.map((placeholder) => {
             const key = placeholder.replace(/^\{\{|\}\}$/g, '');
             const mapping = variables[key] ?? { type: 'static', value: '' };
@@ -322,6 +459,18 @@ export function Step3Personalize({
         </div>
         <div className="rounded-lg bg-[#0e1a12] p-3">
           <div className="ml-auto max-w-[85%] rounded-lg bg-violet-700/30 px-3 py-2 shadow-sm">
+            {previewHeaderImageUrl && (
+              <div className="mb-2 overflow-hidden rounded bg-slate-950/20">
+                <img
+                  src={previewHeaderImageUrl}
+                  alt="Header preview"
+                  className="max-h-32 w-full object-cover"
+                  onError={(e) => {
+                    (e.target as HTMLElement).style.display = 'none';
+                  }}
+                />
+              </div>
+            )}
             <p className="whitespace-pre-wrap text-sm text-violet-50">
               {previewText}
             </p>

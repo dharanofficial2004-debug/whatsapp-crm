@@ -425,7 +425,7 @@ export function MessageThread({
   }, []);
 
   const handleSendTemplate = useCallback(
-    async (template: MessageTemplate, params: string[]) => {
+    async (template: MessageTemplate, params: string[], headerImageUrl?: string) => {
       if (!conversation) return;
 
       const renderedBody = renderTemplateBody(template.body_text, params);
@@ -452,6 +452,7 @@ export function MessageThread({
             message_type: "template",
             template_name: template.name,
             template_params: params,
+            header_image: headerImageUrl,
             content_text: renderedBody,
           }),
         });
